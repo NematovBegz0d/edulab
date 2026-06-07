@@ -150,3 +150,19 @@ supabase functions deploy analyze-profile
 4. Tahlil `student_profiles.ai_summary` ga saqlanadi (qayta ochilganda saqlanib qoladi).
 
 > ⚠️ AI faqat **maslahat** beradi — yakuniy qaror pedagog-psixolog tasdigʻi bilan.
+
+
+---
+
+## 📄 PDF hisobot
+
+PDF hisobot **server talab qilmaydi** — brauzerning chop etish imkoniyatidan foydalanadi:
+
+1. Oʻquvchi **Mening profilim** → **Hisobot** tugmasini bosadi (`/my-report`).
+2. Chop etishga moslashtirilgan, brendlangan hisobot sahifasi ochiladi
+   (radar, IQ, mos kasblar, AI tahlil).
+3. **"PDF / Chop etish"** tugmasi → brauzer chop etish oynasi →
+   "Saqlash: PDF" ni tanlab, faylni yuklab oladi.
+
+> Hech qanday qoʻshimcha kutubxona yoki Edge Function kerak emas —
+> hamma joyda (telefon/kompyuter) ishlaydi.
