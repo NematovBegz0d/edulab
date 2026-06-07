@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ProtectedRoute } from "@/components/protected-route";
 import { AppHeader } from "@/components/app-header";
@@ -31,6 +31,8 @@ interface TopCareer {
 
 function MyProfile() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [aiBusy, setAiBusy] = useState(false);
 
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ["profile-full", user?.id],
@@ -49,7 +51,7 @@ function MyProfile() {
     queryFn: async () => {
       const { data } = await supabase
         .from("student_profiles")
-        .select("radar_scores, iq_scores, top_careers, profile_completeness")
+        .select("radar_scores, iq_scores, top_careers, profile_completeness, ai_summary")
         .eq("student_id", user!.id)
         .maybeSingle();
       return data;
@@ -89,6 +91,20 @@ function MyProfile() {
   const hollandCode = results?.find((r) => r.holland_code)?.holland_code ?? null;
   const temperament = results?.find((r) => r.personality_type)?.personality_type ?? null;
   const hasData = radarData.length > 0;
+  const aiSummary = (sp?.ai_summary as string | null) ?? null;
+  const completedCount = results?.length ?? 0;
+
+  async function generateAI() {
+    setAiBusy(true);
+    const { error } = await supabase.functions.invoke("analyze-profile", { body: {} });
+    setAiBusy(false);
+    if (error) {
+      toast.error("AI tahlilni yaratib boʻlmadi. API kalit sozlanganini tekshiring.");
+      return;
+    }
+    toast.success("AI tahlil tayyor!");
+    queryClient.invalidateQueries({ queryKey: ["student-profile", user?.id] });
+  }
 
   // Kasblar: yig'ma profildagi top kasblar bo'lsa o'shani, bo'lmasa umumiy ro'yxat
   const displayCareers: TopCareer[] = topCareers.length > 0
@@ -201,15 +217,31 @@ function MyProfile() {
 
             <Card className="mt-6 border-border/60" style={{ boxShadow: "var(--shadow-card)" }}>
               <CardContent className="p-6">
-                <div className="mb-3 flex items-center gap-2">
+                <div className="mb-3 flex flex-wrap items-center gap-2">
                   <Sparkles className="h-5 w-5 text-secondary" />
                   <h3 className="font-semibold text-foreground">AI xulosa</h3>
-                  <Badge variant="outline" className="ml-2 text-xs">Tez orada</Badge>
+                  {aiSummary && (
+                    <Button size="sm" variant="ghost" className="ml-auto" onClick={generateAI} disabled={aiBusy}>
+                      {aiBusy ? "Yangilanmoqda..." : "Qayta yaratish"}
+                    </Button>
+                  )}
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Sun'iy intellekt tahlili 3-5 ta test yakunlanganda avtomatik shakllanadi va bu yerda
-                  kuchli tomonlaringiz, rivojlanish sohalari hamda 6 oylik reja ko'rinishida paydo bo'ladi.
-                </p>
+
+                {aiSummary ? (
+                  <AISummary text={aiSummary} />
+                ) : (
+                  <div className="flex flex-col items-start gap-3">
+                    <p className="text-sm text-muted-foreground">
+                      Sun'iy intellekt natijalaringizni tahlil qilib, kuchli tomonlaringiz,
+                      rivojlanish sohalari va 6 oylik rejani tayyorlaydi.
+                      {completedCount < 3 && " Aniqroq tahlil uchun kamida 3 ta test yeching."}
+                    </p>
+                    <Button onClick={generateAI} disabled={aiBusy || completedCount < 1}>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      {aiBusy ? "Tahlil qilinmoqda..." : "AI tahlilini yaratish"}
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </>
@@ -282,4 +314,64 @@ function MyProfile() {
       </main>
     </div>
   );
+}
+
+
+// --- Yengil Markdown renderer (qoʻshimcha kutubxonasiz) ---
+function renderInline(text: string) {
+  // **bold** ni <strong> ga aylantiradi
+  const parts = text.split(/(\*\*[^*]+\*\*)/g);
+  return parts.map((p, i) =>
+    p.startsWith("**") && p.endsWith("**") ? (
+      <strong key={i} className="font-semibold text-foreground">{p.slice(2, -2)}</strong>
+    ) : (
+      <span key={i}>{p}</span>
+    ),
+  );
+}
+
+function AISummary({ text }: { text: string }) {
+  const lines = text.split("\n");
+  const blocks: React.ReactNode[] = [];
+  let list: string[] = [];
+
+  const flushList = (key: string) => {
+    if (list.length === 0) return;
+    blocks.push(
+      <ul key={key} className="ml-1 space-y-1.5">
+        {list.map((item, i) => (
+          <li key={i} className="flex gap-2 text-sm text-muted-foreground">
+            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+            <span>{renderInline(item)}</span>
+          </li>
+        ))}
+      </ul>,
+    );
+    list = [];
+  };
+
+  lines.forEach((raw, i) => {
+    const line = raw.trim();
+    if (line.startsWith("## ")) {
+      flushList(`l-${i}`);
+      blocks.push(
+        <h4 key={`h-${i}`} className="mt-5 flex items-center gap-2 text-base font-semibold text-foreground first:mt-0">
+          {line.replace(/^##\s*/, "")}
+        </h4>,
+      );
+    } else if (line.startsWith("# ")) {
+      flushList(`l-${i}`);
+      blocks.push(<h3 key={`h-${i}`} className="mt-5 text-lg font-bold text-foreground">{line.replace(/^#\s*/, "")}</h3>);
+    } else if (/^[-*]\s+/.test(line)) {
+      list.push(line.replace(/^[-*]\s+/, ""));
+    } else if (/^\d+\.\s+/.test(line)) {
+      list.push(line.replace(/^\d+\.\s+/, ""));
+    } else if (line.length > 0) {
+      flushList(`l-${i}`);
+      blocks.push(<p key={`p-${i}`} className="text-sm leading-relaxed text-muted-foreground">{renderInline(line)}</p>);
+    }
+  });
+  flushList("l-end");
+
+  return <div className="space-y-2">{blocks}</div>;
 }

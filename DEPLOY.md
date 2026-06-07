@@ -118,3 +118,35 @@ oʻqiladi — oʻquvchi hech qachon koʻra olmaydi (aldab boʻlmaydi).
 - 📄 PDF hisobot
 - 📈 Maslahatchi analytics sahifasi
 - 🖼 Raven IQ uchun rasmli savollar
+
+
+---
+
+## 🤖 AI tahlil (analyze-profile) — sozlash
+
+AI tahlil Claude (Anthropic) API'dan foydalanadi. Ishlashi uchun API kalit kerak.
+
+### 1. API kalit olish
+[console.anthropic.com](https://console.anthropic.com) → API key yarating.
+
+### 2. Supabase'ga maxfiy kalit qoʻshish
+```bash
+supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+# ixtiyoriy: model nomini oʻzgartirish
+supabase secrets set CLAUDE_MODEL=claude-sonnet-4-20250514
+```
+> Lovable Cloud'da: Project Settings → Edge Functions → Secrets boʻlimiga `ANTHROPIC_API_KEY` qoʻshing.
+
+### 3. Funksiyani deploy qilish
+```bash
+supabase functions deploy analyze-profile
+```
+
+### 4. Ishlatish
+1. Oʻquvchi kamida 1 ta (yaxshisi 3+) test yakunlaydi.
+2. **Mening profilim** → "AI tahlilini yaratish" tugmasi.
+3. Claude natijalarni tahlil qiladi → kuchli tomonlar, rivojlanish sohalari,
+   tavsiya etilgan yoʻnalishlar va 6 oylik reja paydo boʻladi.
+4. Tahlil `student_profiles.ai_summary` ga saqlanadi (qayta ochilganda saqlanib qoladi).
+
+> ⚠️ AI faqat **maslahat** beradi — yakuniy qaror pedagog-psixolog tasdigʻi bilan.
