@@ -1,0 +1,185 @@
+import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { ProtectedRoute } from "@/components/protected-route";
+import { AppHeader } from "@/components/app-header";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Card, CardContent } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
+import { ChevronLeft, ChevronRight, CheckCircle2, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+
+export const Route = createFileRoute("/test/$id")({
+  head: () => ({ meta: [{ title: "Test — EduLens" }] }),
+  component: () => (<ProtectedRoute><TestRunner /></ProtectedRoute>),
+});
+
+interface OptionItem { value: number; label: string }
+
+function TestRunner() {
+  const { id } = Route.useParams();
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [idx, setIdx] = useState(0);
+  const [answers, setAnswers] = useState<Record<string, number>>({});
+  const [finishing, setFinishing] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const { data: test } = useQuery({
+    queryKey: ["test", id],
+    queryFn: async () => {
+      const { data } = await supabase.from("tests").select("*").eq("id", id).maybeSingle();
+      return data;
+    },
+  });
+
+  const { data: questions } = useQuery({
+    queryKey: ["questions", id],
+    queryFn: async () => {
+      const { data } = await supabase.from("questions").select("*").eq("test_id", id).order("question_number");
+      return data ?? [];
+    },
+  });
+
+  // Create or fetch session
+  useEffect(() => {
+    if (!user || !id) return;
+    (async () => {
+      const { data: existing } = await supabase
+        .from("test_sessions")
+        .select("id, status")
+        .eq("student_id", user.id)
+        .eq("test_id", id)
+        .neq("status", "completed")
+        .limit(1)
+        .maybeSingle();
+      if (existing) {
+        setSessionId(existing.id);
+        const { data: prev } = await supabase.from("answers").select("question_id, answer_value").eq("session_id", existing.id);
+        const map: Record<string, number> = {};
+        (prev ?? []).forEach((a) => { map[a.question_id] = (a.answer_value as { v: number })?.v ?? 0; });
+        setAnswers(map);
+      } else {
+        const { data: created } = await supabase.from("test_sessions").insert({ student_id: user.id, test_id: id, status: "in_progress" }).select("id").single();
+        if (created) setSessionId(created.id);
+      }
+    })();
+  }, [user, id]);
+
+  const total = questions?.length ?? 0;
+  const q = questions?.[idx];
+  const progress = total ? Math.round(((idx + 1) / total) * 100) : 0;
+  const options = useMemo<OptionItem[]>(() => (q?.options as unknown as OptionItem[]) ?? [], [q]);
+
+  async function selectAnswer(val: number) {
+    if (!q || !sessionId) return;
+    setAnswers((p) => ({ ...p, [q.id]: val }));
+    await supabase.from("answers").upsert({ session_id: sessionId, question_id: q.id, answer_value: { v: val } }, { onConflict: "session_id,question_id" });
+    if (idx < total - 1) setTimeout(() => setIdx((i) => i + 1), 150);
+  }
+
+  async function finishTest() {
+    if (!sessionId) return;
+    setFinishing(true);
+    await supabase.from("test_sessions").update({ status: "completed", completed_at: new Date().toISOString() }).eq("id", sessionId);
+    setFinishing(false);
+    setDone(true);
+    toast.success("Test muvaffaqiyatli tugatildi!");
+  }
+
+  if (done) {
+    return (
+      <div className="min-h-screen bg-background">
+        <AppHeader />
+        <main className="mx-auto flex max-w-2xl flex-col items-center px-4 py-20 text-center">
+          <div className="flex h-20 w-20 items-center justify-center rounded-full bg-success/15 text-success">
+            <CheckCircle2 className="h-10 w-10" />
+          </div>
+          <h1 className="mt-6 text-3xl font-bold text-foreground">Test tugadi!</h1>
+          <p className="mt-2 text-muted-foreground">Javoblaringiz saqlandi. Natijalar tez orada profilingizda paydo bo'ladi.</p>
+          <div className="mt-8 flex gap-3">
+            <Button asChild variant="outline"><Link to="/my-tests">Boshqa test</Link></Button>
+            <Button asChild><Link to="/my-profile">Profilimni ko'rish</Link></Button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  if (!test || !questions || !sessionId) {
+    return (
+      <div className="min-h-screen bg-background">
+        <AppHeader />
+        <div className="flex items-center justify-center py-20"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+      </div>
+    );
+  }
+
+  if (total === 0) {
+    return (
+      <div className="min-h-screen bg-background">
+        <AppHeader />
+        <main className="mx-auto max-w-2xl px-4 py-20 text-center">
+          <h1 className="text-2xl font-bold text-foreground">Bu test uchun savollar hali tayyorlanmoqda</h1>
+          <p className="mt-2 text-muted-foreground">Boshqa testni sinab ko'ring.</p>
+          <Button asChild className="mt-6"><Link to="/my-tests">Testlarga qaytish</Link></Button>
+        </main>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      <AppHeader />
+      <main className="mx-auto max-w-2xl px-4 py-8">
+        <div className="mb-6">
+          <div className="mb-2 flex items-center justify-between text-sm">
+            <span className="font-medium text-foreground">{test.name_uz}</span>
+            <span className="text-muted-foreground">{idx + 1} / {total}</span>
+          </div>
+          <Progress value={progress} />
+        </div>
+
+        <Card className="border-border/60" style={{ boxShadow: "var(--shadow-card)" }}>
+          <CardContent className="p-6 md:p-8">
+            <p className="text-xs font-medium uppercase tracking-wide text-primary">Savol {idx + 1}</p>
+            <h2 className="mt-2 text-xl font-semibold text-foreground md:text-2xl">{q?.question_text_uz}</h2>
+            <div className="mt-6 space-y-3">
+              {options.map((opt) => {
+                const selected = answers[q!.id] === opt.value;
+                return (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    onClick={() => selectAnswer(opt.value)}
+                    className={`w-full rounded-xl border p-4 text-left transition-all ${selected ? "border-primary bg-primary/5 text-foreground" : "border-border bg-card hover:border-primary/50 hover:bg-muted"}`}
+                  >
+                    <span className="font-medium">{opt.label}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
+        <div className="mt-6 flex items-center justify-between">
+          <Button variant="outline" disabled={idx === 0} onClick={() => setIdx((i) => i - 1)}>
+            <ChevronLeft className="mr-1 h-4 w-4" />Oldingi
+          </Button>
+          {idx < total - 1 ? (
+            <Button onClick={() => setIdx((i) => i + 1)} disabled={!(q && q.id in answers)}>
+              Keyingi<ChevronRight className="ml-1 h-4 w-4" />
+            </Button>
+          ) : (
+            <Button onClick={finishTest} disabled={finishing || !(q && q.id in answers)}>
+              {finishing ? "Saqlanmoqda..." : "Tugatish"}
+            </Button>
+          )}
+        </div>
+      </main>
+    </div>
+  );
+}
