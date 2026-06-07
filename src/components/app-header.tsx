@@ -3,7 +3,7 @@ import { Logo } from "./logo";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { LogOut, LayoutDashboard, ClipboardList, User as UserIcon, Users } from "lucide-react";
+import { LogOut, LayoutDashboard, ClipboardList, User as UserIcon, Users, TrendingUp } from "lucide-react";
 
 export function AppHeader() {
   const navigate = useNavigate();
@@ -30,9 +30,14 @@ export function AppHeader() {
             <span className="inline-flex items-center gap-2"><UserIcon className="h-4 w-4" />Profil</span>
           </Link>
           {isStaff && (
-            <Link to="/students" className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground" activeProps={{ className: "rounded-lg px-3 py-2 text-sm font-medium bg-accent text-foreground" }}>
-              <span className="inline-flex items-center gap-2"><Users className="h-4 w-4" />O'quvchilar</span>
-            </Link>
+            <>
+              <Link to="/students" className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground" activeProps={{ className: "rounded-lg px-3 py-2 text-sm font-medium bg-accent text-foreground" }}>
+                <span className="inline-flex items-center gap-2"><Users className="h-4 w-4" />O'quvchilar</span>
+              </Link>
+              <Link to="/analytics" className="rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground" activeProps={{ className: "rounded-lg px-3 py-2 text-sm font-medium bg-accent text-foreground" }}>
+                <span className="inline-flex items-center gap-2"><TrendingUp className="h-4 w-4" />Tahlil</span>
+              </Link>
+            </>
           )}
         </nav>
         <Button variant="ghost" size="sm" onClick={signOut}>
