@@ -84,8 +84,16 @@ function TestRunner() {
   async function finishTest() {
     if (!sessionId) return;
     setFinishing(true);
-    await supabase.from("test_sessions").update({ status: "completed", completed_at: new Date().toISOString() }).eq("id", sessionId);
+    // Ball hisoblash serverda (Edge Function) bajariladi —
+    // u natijani yozadi va profilni (radar, kasblar) yangilaydi.
+    const { error } = await supabase.functions.invoke("complete-session", {
+      body: { sessionId },
+    });
     setFinishing(false);
+    if (error) {
+      toast.error("Natijani hisoblashda xatolik. Qayta urinib ko'ring.");
+      return;
+    }
     setDone(true);
     toast.success("Test muvaffaqiyatli tugatildi!");
   }
