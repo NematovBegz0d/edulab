@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { ProtectedRoute } from "@/components/protected-route";
 import { AppHeader } from "@/components/app-header";
@@ -8,10 +8,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { AISummary } from "@/components/ai-summary";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { Radar, RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip } from "recharts";
-import { Sparkles, GraduationCap, Briefcase, Award, Inbox } from "lucide-react";
+import { Sparkles, GraduationCap, Briefcase, Award, Inbox, FileText } from "lucide-react";
 
 export const Route = createFileRoute("/my-profile")({
   head: () => ({ meta: [{ title: "Mening profilim — EduLens" }] }),
@@ -31,6 +32,8 @@ interface TopCareer {
 
 function MyProfile() {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
+  const [aiBusy, setAiBusy] = useState(false);
 
   const { data: profile, isLoading: profileLoading } = useQuery({
     queryKey: ["profile-full", user?.id],
@@ -49,7 +52,7 @@ function MyProfile() {
     queryFn: async () => {
       const { data } = await supabase
         .from("student_profiles")
-        .select("radar_scores, iq_scores, top_careers, profile_completeness")
+        .select("radar_scores, iq_scores, top_careers, profile_completeness, ai_summary")
         .eq("student_id", user!.id)
         .maybeSingle();
       return data;
@@ -89,6 +92,20 @@ function MyProfile() {
   const hollandCode = results?.find((r) => r.holland_code)?.holland_code ?? null;
   const temperament = results?.find((r) => r.personality_type)?.personality_type ?? null;
   const hasData = radarData.length > 0;
+  const aiSummary = (sp?.ai_summary as string | null) ?? null;
+  const completedCount = results?.length ?? 0;
+
+  async function generateAI() {
+    setAiBusy(true);
+    const { error } = await supabase.functions.invoke("analyze-profile", { body: {} });
+    setAiBusy(false);
+    if (error) {
+      toast.error("AI tahlilni yaratib boʻlmadi. API kalit sozlanganini tekshiring.");
+      return;
+    }
+    toast.success("AI tahlil tayyor!");
+    queryClient.invalidateQueries({ queryKey: ["student-profile", user?.id] });
+  }
 
   // Kasblar: yig'ma profildagi top kasblar bo'lsa o'shani, bo'lmasa umumiy ro'yxat
   const displayCareers: TopCareer[] = topCareers.length > 0
@@ -123,10 +140,15 @@ function MyProfile() {
             )}
             <p className="mt-1 text-muted-foreground">Shaxsiy psixometrik profilingiz</p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             {hollandCode && <Badge variant="secondary" className="bg-primary/10 text-primary">Holland: {hollandCode}</Badge>}
             {temperament && <Badge variant="secondary" className="bg-secondary/10 text-secondary">Temperament: {temperament}</Badge>}
             <Badge variant="outline">Profil: {completeness}%</Badge>
+            {hasData && (
+              <Button asChild size="sm" variant="outline">
+                <Link to="/my-report"><FileText className="mr-1.5 h-4 w-4" />Hisobot</Link>
+              </Button>
+            )}
           </div>
         </div>
 
@@ -201,15 +223,31 @@ function MyProfile() {
 
             <Card className="mt-6 border-border/60" style={{ boxShadow: "var(--shadow-card)" }}>
               <CardContent className="p-6">
-                <div className="mb-3 flex items-center gap-2">
+                <div className="mb-3 flex flex-wrap items-center gap-2">
                   <Sparkles className="h-5 w-5 text-secondary" />
                   <h3 className="font-semibold text-foreground">AI xulosa</h3>
-                  <Badge variant="outline" className="ml-2 text-xs">Tez orada</Badge>
+                  {aiSummary && (
+                    <Button size="sm" variant="ghost" className="ml-auto" onClick={generateAI} disabled={aiBusy}>
+                      {aiBusy ? "Yangilanmoqda..." : "Qayta yaratish"}
+                    </Button>
+                  )}
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Sun'iy intellekt tahlili 3-5 ta test yakunlanganda avtomatik shakllanadi va bu yerda
-                  kuchli tomonlaringiz, rivojlanish sohalari hamda 6 oylik reja ko'rinishida paydo bo'ladi.
-                </p>
+
+                {aiSummary ? (
+                  <AISummary text={aiSummary} />
+                ) : (
+                  <div className="flex flex-col items-start gap-3">
+                    <p className="text-sm text-muted-foreground">
+                      Sun'iy intellekt natijalaringizni tahlil qilib, kuchli tomonlaringiz,
+                      rivojlanish sohalari va 6 oylik rejani tayyorlaydi.
+                      {completedCount < 3 && " Aniqroq tahlil uchun kamida 3 ta test yeching."}
+                    </p>
+                    <Button onClick={generateAI} disabled={aiBusy || completedCount < 1}>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      {aiBusy ? "Tahlil qilinmoqda..." : "AI tahlilini yaratish"}
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           </>

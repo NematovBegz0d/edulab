@@ -118,3 +118,67 @@ oʻqiladi — oʻquvchi hech qachon koʻra olmaydi (aldab boʻlmaydi).
 - 📄 PDF hisobot
 - 📈 Maslahatchi analytics sahifasi
 - 🖼 Raven IQ uchun rasmli savollar
+
+
+---
+
+## 🤖 AI tahlil (analyze-profile) — sozlash
+
+AI tahlil Claude (Anthropic) API'dan foydalanadi. Ishlashi uchun API kalit kerak.
+
+### 1. API kalit olish
+[console.anthropic.com](https://console.anthropic.com) → API key yarating.
+
+### 2. Supabase'ga maxfiy kalit qoʻshish
+```bash
+supabase secrets set ANTHROPIC_API_KEY=sk-ant-...
+# ixtiyoriy: model nomini oʻzgartirish
+supabase secrets set CLAUDE_MODEL=claude-sonnet-4-20250514
+```
+> Lovable Cloud'da: Project Settings → Edge Functions → Secrets boʻlimiga `ANTHROPIC_API_KEY` qoʻshing.
+
+### 3. Funksiyani deploy qilish
+```bash
+supabase functions deploy analyze-profile
+```
+
+### 4. Ishlatish
+1. Oʻquvchi kamida 1 ta (yaxshisi 3+) test yakunlaydi.
+2. **Mening profilim** → "AI tahlilini yaratish" tugmasi.
+3. Claude natijalarni tahlil qiladi → kuchli tomonlar, rivojlanish sohalari,
+   tavsiya etilgan yoʻnalishlar va 6 oylik reja paydo boʻladi.
+4. Tahlil `student_profiles.ai_summary` ga saqlanadi (qayta ochilganda saqlanib qoladi).
+
+> ⚠️ AI faqat **maslahat** beradi — yakuniy qaror pedagog-psixolog tasdigʻi bilan.
+
+
+---
+
+## 📄 PDF hisobot
+
+PDF hisobot **server talab qilmaydi** — brauzerning chop etish imkoniyatidan foydalanadi:
+
+1. Oʻquvchi **Mening profilim** → **Hisobot** tugmasini bosadi (`/my-report`).
+2. Chop etishga moslashtirilgan, brendlangan hisobot sahifasi ochiladi
+   (radar, IQ, mos kasblar, AI tahlil).
+3. **"PDF / Chop etish"** tugmasi → brauzer chop etish oynasi →
+   "Saqlash: PDF" ni tanlab, faylni yuklab oladi.
+
+> Hech qanday qoʻshimcha kutubxona yoki Edge Function kerak emas —
+> hamma joyda (telefon/kompyuter) ishlaydi.
+
+
+---
+
+## 🖼 Raven IQ — vizual (rasmli) savollar
+
+Raven testi vizual mantiqiy naqsh savollaridan iborat. Rasmlar **SVG**
+koʻrinishida bazada saqlanadi (tashqi fayl/hosting kerak emas).
+
+- `questions.image_svg` — savol rasmi (ketma-ketlik + "?")
+- `options[].svg` — variant rasmlari
+- Toʻgʻri javob `question_answer_keys`'da (faqat serverda)
+- Test interfeysi rasmli savol va variantlarni avtomatik koʻrsatadi (`question_type='matrix'`)
+
+Migratsiyani qoʻllash: `supabase db push` (yoki Lovable avtomatik).
+6 ta namunaviy savol qoʻshilgan (sanoq, burilish, tomonlar, shtrix, oʻlcham, pozitsiya).
