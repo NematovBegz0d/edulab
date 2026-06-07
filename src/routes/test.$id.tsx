@@ -16,7 +16,7 @@ export const Route = createFileRoute("/test/$id")({
   component: () => (<ProtectedRoute><TestRunner /></ProtectedRoute>),
 });
 
-interface OptionItem { value: number; label: string }
+interface OptionItem { value: number; label?: string; svg?: string }
 
 function TestRunner() {
   const { id } = Route.useParams();
@@ -155,21 +155,47 @@ function TestRunner() {
           <CardContent className="p-6 md:p-8">
             <p className="text-xs font-medium uppercase tracking-wide text-primary">Savol {idx + 1}</p>
             <h2 className="mt-2 text-xl font-semibold text-foreground md:text-2xl">{q?.question_text_uz}</h2>
-            <div className="mt-6 space-y-3">
-              {options.map((opt) => {
-                const selected = answers[q!.id] === opt.value;
-                return (
-                  <button
-                    key={opt.value}
-                    type="button"
-                    onClick={() => selectAnswer(opt.value)}
-                    className={`w-full rounded-xl border p-4 text-left transition-all ${selected ? "border-primary bg-primary/5 text-foreground" : "border-border bg-card hover:border-primary/50 hover:bg-muted"}`}
-                  >
-                    <span className="font-medium">{opt.label}</span>
-                  </button>
-                );
-              })}
-            </div>
+
+            {(q as { image_svg?: string } | undefined)?.image_svg && (
+              <div
+                className="mt-5 flex justify-center overflow-x-auto rounded-xl bg-muted/40 p-4"
+                dangerouslySetInnerHTML={{ __html: (q as { image_svg?: string }).image_svg! }}
+              />
+            )}
+
+            {options.some((o) => o.svg) ? (
+              <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {options.map((opt) => {
+                  const selected = answers[q!.id] === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => selectAnswer(opt.value)}
+                      aria-label={`Variant ${opt.value}`}
+                      className={`flex items-center justify-center rounded-xl border p-3 transition-all ${selected ? "border-primary bg-primary/5 ring-2 ring-primary/30" : "border-border bg-card hover:border-primary/50 hover:bg-muted"}`}
+                      dangerouslySetInnerHTML={{ __html: opt.svg! }}
+                    />
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="mt-6 space-y-3">
+                {options.map((opt) => {
+                  const selected = answers[q!.id] === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      onClick={() => selectAnswer(opt.value)}
+                      className={`w-full rounded-xl border p-4 text-left transition-all ${selected ? "border-primary bg-primary/5 text-foreground" : "border-border bg-card hover:border-primary/50 hover:bg-muted"}`}
+                    >
+                      <span className="font-medium">{opt.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
 

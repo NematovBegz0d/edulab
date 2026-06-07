@@ -166,3 +166,19 @@ PDF hisobot **server talab qilmaydi** — brauzerning chop etish imkoniyatidan f
 
 > Hech qanday qoʻshimcha kutubxona yoki Edge Function kerak emas —
 > hamma joyda (telefon/kompyuter) ishlaydi.
+
+
+---
+
+## 🖼 Raven IQ — vizual (rasmli) savollar
+
+Raven testi vizual mantiqiy naqsh savollaridan iborat. Rasmlar **SVG**
+koʻrinishida bazada saqlanadi (tashqi fayl/hosting kerak emas).
+
+- `questions.image_svg` — savol rasmi (ketma-ketlik + "?")
+- `options[].svg` — variant rasmlari
+- Toʻgʻri javob `question_answer_keys`'da (faqat serverda)
+- Test interfeysi rasmli savol va variantlarni avtomatik koʻrsatadi (`question_type='matrix'`)
+
+Migratsiyani qoʻllash: `supabase db push` (yoki Lovable avtomatik).
+6 ta namunaviy savol qoʻshilgan (sanoq, burilish, tomonlar, shtrix, oʻlcham, pozitsiya).
