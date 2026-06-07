@@ -1,1 +1,4 @@
 project_id = "avfehwaamhzcydpbuitt"
+
+[functions.complete-session]
+verify_jwt = true
